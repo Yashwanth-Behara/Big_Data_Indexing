@@ -1,0 +1,22 @@
+{
+  "name": "demo-1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "etag": "^1.8.1",
+    "express": "^4.21.2",
+    "md5": "^2.3.0",
+    "redis": "^4.7.0"
+  }
+}
