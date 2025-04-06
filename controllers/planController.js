@@ -1,5 +1,6 @@
 const { savePlan, getPlan, deletePlan, computeEtag } = require('../services/planService');
 const Ajv = require('ajv');
+const deepMerge = require('../utils/deepMerge');
 
 const ajv = new Ajv();
 
@@ -131,4 +132,45 @@ const deletePlanById = async (req, res) => {
     res.status(200).json({ message: "Plan deleted" });
 };
 
-module.exports = { createPlan, getPlanById, deletePlanById };
+// Update a plan
+const updatePlan = async (req, res) => {
+    const planId = req.params.id;
+    const ifMatchHeader = req.headers['if-match']; // ETag from request header
+
+    if (!ifMatchHeader) {
+        return res.status(400).json({ error: 'Missing If-Match header' });
+    }
+
+    // Get existing plan from DB
+    const existingPlan = await getPlan(planId);
+    if (!existingPlan) {
+        return res.status(404).json({ error: 'Plan not found' });
+    }
+
+    // Compute ETag for the existing resource (based on its data)
+    const currentETag = computeEtag(existingPlan);
+
+    // Compare ETags
+    if (ifMatchHeader !== currentETag) {
+        return res.status(412).json({ error: 'Precondition Failed: ETag mismatch' });
+    }
+
+    // Validate the updated object against JSON Schema
+    if (!validate(req.body)) {
+        return res.status(400).json({ error: "Invalid data to update", details: validate.errors });
+    }
+
+    // Deep merge existing plan with request body
+    const updatedPlan = deepMerge(existingPlan, req.body);
+
+
+    // Save updated data to DB
+    await savePlan(planId, updatedPlan);
+
+    // Generate new ETag for the updated resource
+    const newETag = computeEtag(updatedPlan);
+
+    res.setHeader('ETag', newETag);
+    return res.status(200).json(updatedPlan);
+};
+module.exports = { createPlan, getPlanById, deletePlanById, updatePlan };
