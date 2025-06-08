@@ -1,4 +1,5 @@
 const { savePlan, getPlan, deletePlan, computeEtag } = require('../services/planService');
+const { sendToQueue } = require('../services/rabbitmqService');
 const Ajv = require('ajv');
 const deepMerge = require('../utils/deepMerge');
 
@@ -95,6 +96,9 @@ const createPlan = async (req, res) => {
     // Save the new plan to Redis
     await savePlan(planId, data);
 
+    // Send the plan to RabbitMQ for Elasticsearch indexing
+    await sendToQueue({ action: 'create', plan: data });
+
     // Compute ETag for the new data and set it in the response
     const etagValue = computeEtag(data);
     res.set('ETag', etagValue);
@@ -128,6 +132,9 @@ const deletePlanById = async (req, res) => {
     if (result === 0) {
         return res.status(404).json({ error: "Plan not found" });
     }
+
+    // Send the delete message to RabbitMQ for Elasticsearch deletion
+    await sendToQueue({ action: 'delete', planId });
 
     res.status(200).json({ message: "Plan deleted" });
 };
@@ -166,6 +173,9 @@ const updatePlan = async (req, res) => {
 
     // Save updated data to DB
     await savePlan(planId, updatedPlan);
+
+    // Send the updated plan to RabbitMQ for re-indexing in Elasticsearch
+    await sendToQueue({ action: 'update', plan: updatedPlan });
 
     // Generate new ETag for the updated resource
     const newETag = computeEtag(updatedPlan);
